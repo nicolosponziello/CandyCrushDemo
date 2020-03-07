@@ -15,6 +15,8 @@ export (int) var y_start;
 export (int) var offset;
 export (int) var y_offset;
 
+export (PoolVector2Array) var empty_spaces;
+
 #the piece array
 var possible_pieces = [
 	preload("res://scenes/yellow_piece.tscn"),
@@ -45,6 +47,12 @@ func _ready():
 	randomize();
 	all_pieces = make2dArray();
 	spawn_pices();
+	
+func restricted_movement(place):
+	for i in empty_spaces.size():
+		if empty_spaces[i] == place:
+			return true;
+	return false;
 
 func make2dArray():
 	var array = [];
@@ -62,15 +70,17 @@ func grid_to_pixel(col, row):
 func spawn_pices():
 	for i in width:
 		for j in height:
-			var random = generate_random();
-			#create the piece
-			var piece = possible_pieces[random].instance();
-			while(match_at(i, j, piece.color)):
-				random = generate_random();
-				piece = possible_pieces[random].instance();
-			add_child(piece);
-			piece.position = grid_to_pixel(i, j);
-			all_pieces[i][j] = piece;
+			if !restricted_movement(Vector2(i, j)):
+				var random = generate_random();
+				#create the piece
+				var piece = possible_pieces[random].instance();
+				while(match_at(i, j, piece.color)):
+					random = generate_random();
+					piece = possible_pieces[random].instance();
+				add_child(piece);
+				piece.position = grid_to_pixel(i, j);
+				all_pieces[i][j] = piece;
+			
 
 func store_info(first_piece, other_piece, place, dir):
 	piece_one = first_piece;
@@ -211,7 +221,7 @@ func destroy_matched():
 func collapse_cols():
 	for i in width:
 		for j in height:
-			if all_pieces[i][j] == null:
+			if all_pieces[i][j] == null && !restricted_movement(Vector2(i, j)):
 				for k in range(j+1, height):
 					if all_pieces[i][k] != null:
 						all_pieces[i][k].move(grid_to_pixel(i, j));
@@ -223,7 +233,7 @@ func collapse_cols():
 func refill_cols():
 	for i in width:
 		for j in height:
-			if all_pieces[i][j] == null:
+			if all_pieces[i][j] == null && !restricted_movement(Vector2(i, j)):
 				var random = generate_random();
 				#create the piece
 				var piece = possible_pieces[random].instance();
