@@ -89,16 +89,20 @@ func touch_input():
 	if Input.is_action_just_pressed("ui_touch"):
 		var touch_pos = get_global_mouse_position();
 		touch_pos = pixel_to_grid(touch_pos.x, touch_pos.y);
+		if all_pieces[touch_pos.x][touch_pos.y].matched:
+			controlling = false;
+			return;
 		if is_in_grid(touch_pos.x, touch_pos.y):
 			controlling = true;
 			first_touch = touch_pos;
-			print(first_touch);
 		
 	if Input.is_action_just_released("ui_touch"):
 		var touch_pos_released = get_global_mouse_position();
 		touch_pos_released = pixel_to_grid(touch_pos_released.x, touch_pos_released.y);
-		if(is_in_grid(touch_pos_released.x, touch_pos_released.y) && controlling && !check_same_piece(first_touch, touch_pos_released)):
-			final_touch = touch_pos_released;			
+		if(is_in_grid(touch_pos_released.x, touch_pos_released.y) && 
+			controlling && !check_same_piece(first_touch, touch_pos_released) &&
+			!all_pieces[touch_pos_released.x][touch_pos_released.y].matched):
+			final_touch = touch_pos_released;
 			touch_diff(first_touch, final_touch);
 			controlling = false;
 			
@@ -112,6 +116,7 @@ func swap_pieces(col, row, direction):
 	all_pieces[col + direction.x][row + direction.y] = first;
 	first.move(grid_to_pixel(col + direction.x, row + direction.y));
 	second.move(grid_to_pixel(col, row));
+	find_matches();
 	
 func touch_diff(grid_1, grid_2):
 	var diff = grid_2 - grid_1;
@@ -128,3 +133,31 @@ func touch_diff(grid_1, grid_2):
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta):
 	touch_input();
+	
+func find_matches():
+	for i in width:
+		for j in height:
+			if all_pieces[i][j] != null:
+				var currentColor = all_pieces[i][j].color;
+				#check left/right
+				if i >  0 && i < width -1:
+					if all_pieces[i-1][j] != null && all_pieces[i+1][j] != null:
+						if all_pieces[i-1][j].color == currentColor && all_pieces[i+1][j].color == currentColor:
+							print("Match horizontal!");
+							all_pieces[i-1][j].dim();
+							all_pieces[i][j].dim();
+							all_pieces[i+1][j].dim();
+							all_pieces[i-1][j].matched = true;
+							all_pieces[i][j].matched = true;
+							all_pieces[i+1][j].matched = true;
+				if j > 0 && j < height-1:
+					if all_pieces[i][j-1] != null && all_pieces[i][j+1] != null:
+						if all_pieces[i][j-1].color == currentColor && all_pieces[i][j+1].color == currentColor:
+							print("Match vertical!");
+							all_pieces[i][j-1].dim();
+							all_pieces[i][j].dim();
+							all_pieces[i][j+1].dim();
+							all_pieces[i][j-1].matched = true;
+							all_pieces[i][j].matched = true;
+							all_pieces[i][j+1].matched = true;
+	pass;
