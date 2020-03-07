@@ -71,8 +71,6 @@ func generate_random():
 	return floor(rand_range(0, possible_pieces.size()));
 	
 func pixel_to_grid(x, y):
-	print("x: " + String(x));
-	print("y: " + String(y));
 	var col = round((x - x_start) / offset);
 	var row = round((y - y_start) / -offset);
 	if row == -0:
@@ -112,14 +110,11 @@ func swap_pieces(col, row, direction):
 	var second = all_pieces[col + direction.x][row + direction.y];
 	all_pieces[col][row] = second;
 	all_pieces[col + direction.x][row + direction.y] = first;
-	first.position = grid_to_pixel(col + direction.x, row + direction.y);
-	second.position = grid_to_pixel(col, row);
+	first.move(grid_to_pixel(col + direction.x, row + direction.y));
+	second.move(grid_to_pixel(col, row));
 	
 func touch_diff(grid_1, grid_2):
-	print("Grid_1" + String(grid_1));
-	print("Grid_2" + String(grid_2));	
 	var diff = grid_2 - grid_1;
-	print("touch_diff" + String(diff));
 	if abs(diff.x) > abs(diff.y):
 		if diff.x > 0:
 			swap_pieces(grid_1.x, grid_1.y, Vector2(1, 0));
