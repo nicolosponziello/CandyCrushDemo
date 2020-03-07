@@ -1,11 +1,19 @@
 extends Node2D
 
+# FSM
+enum {
+	wait,
+	move
+}
+var state;
+
 # Grid Variables
 export (int) var width;
 export (int) var height;
 export (int) var x_start;
 export (int) var y_start;
 export (int) var offset;
+export (int) var y_offset;
 
 #the piece array
 var possible_pieces = [
@@ -19,6 +27,13 @@ var possible_pieces = [
 
 var all_pieces = [];
 
+# Swap back
+var piece_one = null;
+var piece_two = null;
+var last_place = Vector2(0,0);
+var last_dir = Vector2(0,0);
+var move_check = false;
+
 # Touch
 var first_touch = Vector2(0,0);
 var final_touch = Vector2(0,0);
@@ -26,6 +41,7 @@ var controlling = false;
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
+	state = move;
 	randomize();
 	all_pieces = make2dArray();
 	spawn_pices();
@@ -55,6 +71,18 @@ func spawn_pices():
 			add_child(piece);
 			piece.position = grid_to_pixel(i, j);
 			all_pieces[i][j] = piece;
+
+func store_info(first_piece, other_piece, place, dir):
+	piece_one = first_piece;
+	piece_two = other_piece;
+	last_place = place;
+	last_dir = dir;
+
+func swap_back():
+	if piece_one != null && piece_two != null:
+		swap_pieces(last_place.x, last_place.y, last_dir);
+	state = move;
+	move_check = false;
 			
 func match_at(col, row, color):
 	if col > 1:
@@ -89,9 +117,6 @@ func touch_input():
 	if Input.is_action_just_pressed("ui_touch"):
 		var touch_pos = get_global_mouse_position();
 		touch_pos = pixel_to_grid(touch_pos.x, touch_pos.y);
-		if all_pieces[touch_pos.x][touch_pos.y].matched:
-			controlling = false;
-			return;
 		if is_in_grid(touch_pos.x, touch_pos.y):
 			controlling = true;
 			first_touch = touch_pos;
@@ -100,8 +125,7 @@ func touch_input():
 		var touch_pos_released = get_global_mouse_position();
 		touch_pos_released = pixel_to_grid(touch_pos_released.x, touch_pos_released.y);
 		if(is_in_grid(touch_pos_released.x, touch_pos_released.y) && 
-			controlling && !check_same_piece(first_touch, touch_pos_released) &&
-			!all_pieces[touch_pos_released.x][touch_pos_released.y].matched):
+			controlling && !check_same_piece(first_touch, touch_pos_released)):
 			final_touch = touch_pos_released;
 			touch_diff(first_touch, final_touch);
 			controlling = false;
@@ -112,11 +136,15 @@ func check_same_piece(pos1, pos2):
 func swap_pieces(col, row, direction):
 	var first = all_pieces[col][row];
 	var second = all_pieces[col + direction.x][row + direction.y];
-	all_pieces[col][row] = second;
-	all_pieces[col + direction.x][row + direction.y] = first;
-	first.move(grid_to_pixel(col + direction.x, row + direction.y));
-	second.move(grid_to_pixel(col, row));
-	find_matches();
+	if first != null && second != null:
+		store_info(first, second, Vector2(col, row), direction);
+		state = wait;
+		all_pieces[col][row] = second;
+		all_pieces[col + direction.x][row + direction.y] = first;
+		first.move(grid_to_pixel(col + direction.x, row + direction.y));
+		second.move(grid_to_pixel(col, row));
+		if !move_check:
+			find_matches();
 	
 func touch_diff(grid_1, grid_2):
 	var diff = grid_2 - grid_1;
@@ -130,9 +158,12 @@ func touch_diff(grid_1, grid_2):
 			swap_pieces(grid_1.x, grid_1.y, Vector2(0, 1));
 		elif diff.y < 0:
 			swap_pieces(grid_1.x, grid_1.y, Vector2(0, -1));
+			
+			
 # Called every frame. 'delta' is the elapsed time since the previous frame.
-func _process(delta):
-	touch_input();
+func _process(_delta):
+	if state == move:
+		touch_input();
 	
 func find_matches():
 	for i in width:
@@ -160,4 +191,69 @@ func find_matches():
 							all_pieces[i][j-1].matched = true;
 							all_pieces[i][j].matched = true;
 							all_pieces[i][j+1].matched = true;
-	pass;
+	get_parent().get_node("destroy_timer").start();
+
+func destroy_matched():
+	var found_match = false;
+	for i in width: 
+		for j in height:
+			if all_pieces[i][j] != null:
+				if all_pieces[i][j].matched:
+					found_match = true;
+					all_pieces[i][j].queue_free();
+					all_pieces[i][j] =null;
+	move_check = true;
+	if found_match:
+		get_parent().get_node("collapse_timer").start();
+	else:
+		swap_back();
+
+func collapse_cols():
+	for i in width:
+		for j in height:
+			if all_pieces[i][j] == null:
+				for k in range(j+1, height):
+					if all_pieces[i][k] != null:
+						all_pieces[i][k].move(grid_to_pixel(i, j));
+						all_pieces[i][j] = all_pieces[i][k];
+						all_pieces[i][k] = null;
+						break;
+	get_parent().get_node("refill_timer").start();
+
+func refill_cols():
+	for i in width:
+		for j in height:
+			if all_pieces[i][j] == null:
+				var random = generate_random();
+				#create the piece
+				var piece = possible_pieces[random].instance();
+				while(match_at(i, j, piece.color)):
+					random = generate_random();
+					piece = possible_pieces[random].instance();
+				add_child(piece);
+				piece.position = grid_to_pixel(i, j + y_offset);
+				piece.move(grid_to_pixel(i, j));
+				all_pieces[i][j] = piece;
+	after_refill();
+
+func after_refill():
+	for i in width:
+		for j in height:
+			if all_pieces[i][j] != null:
+				if match_at(i, j, all_pieces[i][j].color):
+					find_matches();
+					get_parent().get_node("destroy_timer").start();
+					break;
+	move_check = false;
+
+func _on_destroy_timer_timeout():
+	destroy_matched();
+
+
+func _on_collapse_timer_timeout():
+	collapse_cols();
+
+
+func _on_refill_timer_timeout():
+	refill_cols();
+	state = move;
