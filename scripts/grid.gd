@@ -15,7 +15,13 @@ export (int) var y_start;
 export (int) var offset;
 export (int) var y_offset;
 
+# Ostacles
 export (PoolVector2Array) var empty_spaces;
+export (PoolVector2Array) var ice_spaces;
+
+# Obstacles signals
+signal damage_ice;
+signal make_ice;
 
 #the piece array
 var possible_pieces = [
@@ -47,6 +53,7 @@ func _ready():
 	randomize();
 	all_pieces = make2dArray();
 	spawn_pices();
+	spawn_ice();
 	
 func restricted_movement(place):
 	for i in empty_spaces.size():
@@ -81,6 +88,9 @@ func spawn_pices():
 				piece.position = grid_to_pixel(i, j);
 				all_pieces[i][j] = piece;
 			
+func spawn_ice():
+	for i in ice_spaces.size():
+		emit_signal("make_ice", ice_spaces[i]);
 
 func store_info(first_piece, other_piece, place, dir):
 	piece_one = first_piece;
@@ -209,6 +219,7 @@ func destroy_matched():
 		for j in height:
 			if all_pieces[i][j] != null:
 				if all_pieces[i][j].matched:
+					emit_signal("damage_ice", Vector2(i, j));
 					found_match = true;
 					all_pieces[i][j].queue_free();
 					all_pieces[i][j] =null;
