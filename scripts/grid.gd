@@ -18,10 +18,13 @@ export (int) var y_offset;
 # Ostacles
 export (PoolVector2Array) var empty_spaces;
 export (PoolVector2Array) var ice_spaces;
+export (PoolVector2Array) var lock_spaces;
 
 # Obstacles signals
 signal damage_ice;
 signal make_ice;
+signal make_lock;
+signal damage_lock;
 
 #the piece array
 var possible_pieces = [
@@ -54,9 +57,15 @@ func _ready():
 	all_pieces = make2dArray();
 	spawn_pieces();
 	spawn_ice();
+	spawn_locks();
 	
 func restricted_fill(place):
 	if is_in_array(empty_spaces, place):
+		return true;
+	return false;
+
+func restricted_move(place):
+	if is_in_array(lock_spaces, place):
 		return true;
 	return false;
 	
@@ -96,6 +105,10 @@ func spawn_pieces():
 func spawn_ice():
 	for i in ice_spaces.size():
 		emit_signal("make_ice", ice_spaces[i]);
+
+func spawn_locks():
+	for i in lock_spaces.size():
+		emit_signal("make_lock", lock_spaces[i]);
 
 func store_info(first_piece, other_piece, place, dir):
 	piece_one = first_piece;
@@ -162,6 +175,8 @@ func swap_pieces(col, row, direction):
 	var first = all_pieces[col][row];
 	var second = all_pieces[col + direction.x][row + direction.y];
 	if first != null && second != null:
+		if restricted_move(Vector2(col, row)) or restricted_move(Vector2(col, row)  + direction):
+			return;
 		store_info(first, second, Vector2(col, row), direction);
 		state = wait;
 		all_pieces[col][row] = second;
@@ -225,7 +240,7 @@ func destroy_matched():
 		for j in height:
 			if all_pieces[i][j] != null:
 				if all_pieces[i][j].matched:
-					emit_signal("damage_ice", Vector2(i, j));
+					damage_special(i, j);
 					found_match = true;
 					all_pieces[i][j].queue_free();
 					all_pieces[i][j] =null;
@@ -234,6 +249,10 @@ func destroy_matched():
 		get_parent().get_node("collapse_timer").start();
 	else:
 		swap_back();
+		
+func damage_special(i, j):
+	emit_signal("damage_ice", Vector2(i, j));
+	emit_signal("damage_lock", Vector2(i, j));
 
 func collapse_cols():
 	for i in width:
@@ -284,3 +303,9 @@ func _on_collapse_timer_timeout():
 func _on_refill_timer_timeout():
 	refill_cols();
 	state = move;
+
+
+func _on_lock_holder_remove_lock(pos):
+	for i in range(lock_spaces.size() -1 , -1, -1):
+		if lock_spaces[i] == pos:
+			lock_spaces.remove(i);
