@@ -19,12 +19,15 @@ export (int) var y_offset;
 export (PoolVector2Array) var empty_spaces;
 export (PoolVector2Array) var ice_spaces;
 export (PoolVector2Array) var lock_spaces;
+export (PoolVector2Array) var concrete_spaces;
 
 # Obstacles signals
 signal damage_ice;
 signal make_ice;
 signal make_lock;
 signal damage_lock;
+signal make_concrete;
+signal damage_concrete;
 
 #the piece array
 var possible_pieces = [
@@ -58,9 +61,12 @@ func _ready():
 	spawn_pieces();
 	spawn_ice();
 	spawn_locks();
+	spawn_concrete();
 	
 func restricted_fill(place):
 	if is_in_array(empty_spaces, place):
+		return true;
+	if is_in_array(concrete_spaces, place):
 		return true;
 	return false;
 
@@ -109,6 +115,11 @@ func spawn_ice():
 func spawn_locks():
 	for i in lock_spaces.size():
 		emit_signal("make_lock", lock_spaces[i]);
+		
+func spawn_concrete():
+	for i in lock_spaces.size():
+		emit_signal("make_concrete", concrete_spaces[i]);
+
 
 func store_info(first_piece, other_piece, place, dir):
 	piece_one = first_piece;
@@ -250,9 +261,20 @@ func destroy_matched():
 	else:
 		swap_back();
 		
+func check_concrete(col, row):
+	if col < width -1:
+		emit_signal("damage_concrete", Vector2(col +1, row));
+	if col > 0:
+		emit_signal("damage_concrete", Vector2(col -1, row));
+	if	row < height -1:
+		emit_signal("damage_concrete", Vector2(col, row +1));
+	if row > 0:
+		emit_signal("damage_concrete", Vector2(col, row -1));
+		
 func damage_special(i, j):
 	emit_signal("damage_ice", Vector2(i, j));
 	emit_signal("damage_lock", Vector2(i, j));
+	check_concrete(i, j);
 
 func collapse_cols():
 	for i in width:
@@ -304,8 +326,17 @@ func _on_refill_timer_timeout():
 	refill_cols();
 	state = move;
 
+func remove_from_array(array, item):
+	for i in range(array.size() -1 , -1, -1):
+		if array[i] == item:
+			array.remove(i);
 
 func _on_lock_holder_remove_lock(pos):
 	for i in range(lock_spaces.size() -1 , -1, -1):
 		if lock_spaces[i] == pos:
 			lock_spaces.remove(i);
+
+func _on_concrete_holder_remove_concrete(pos):
+	for i in range(concrete_spaces.size() -1 , -1, -1):
+		if concrete_spaces[i] == pos:
+			concrete_spaces.remove(i);
