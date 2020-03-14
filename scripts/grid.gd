@@ -52,12 +52,17 @@ func _ready():
 	state = move;
 	randomize();
 	all_pieces = make2dArray();
-	spawn_pices();
+	spawn_pieces();
 	spawn_ice();
 	
-func restricted_movement(place):
-	for i in empty_spaces.size():
-		if empty_spaces[i] == place:
+func restricted_fill(place):
+	if is_in_array(empty_spaces, place):
+		return true;
+	return false;
+	
+func is_in_array(array, item):
+	for i in array.size():
+		if array[i] == item:
 			return true;
 	return false;
 
@@ -74,10 +79,10 @@ func grid_to_pixel(col, row):
 	var new_y = y_start + -offset * row;
 	return Vector2(new_x, new_y);
 
-func spawn_pices():
+func spawn_pieces():
 	for i in width:
 		for j in height:
-			if !restricted_movement(Vector2(i, j)):
+			if !restricted_fill(Vector2(i, j)):
 				var random = generate_random();
 				#create the piece
 				var piece = possible_pieces[random].instance();
@@ -106,11 +111,11 @@ func swap_back():
 			
 func match_at(col, row, color):
 	if col > 1:
-		if all_pieces[col - 1][row] != null && all_pieces[col - 2][row] != null:
+		if !is_piece_null(col - 1,row) && !is_piece_null(col - 2,row):
 			if all_pieces[col-1][row].color == color && all_pieces[col -2][row].color == color:
 				return true;
 	if row > 1:
-		if all_pieces[col][row-1] != null && all_pieces[col][row-2] != null:
+		if !is_piece_null(col,row-1) && !is_piece_null(col,row-2):
 			if all_pieces[col][row-1].color == color && all_pieces[col][row-2].color == color:
 				return true;
 	return false;
@@ -192,26 +197,27 @@ func find_matches():
 				var currentColor = all_pieces[i][j].color;
 				#check left/right
 				if i >  0 && i < width -1:
-					if all_pieces[i-1][j] != null && all_pieces[i+1][j] != null:
+					if !is_piece_null(i-1,j) && !is_piece_null(i+1,j):
 						if all_pieces[i-1][j].color == currentColor && all_pieces[i+1][j].color == currentColor:
 							print("Match horizontal!");
-							all_pieces[i-1][j].dim();
-							all_pieces[i][j].dim();
-							all_pieces[i+1][j].dim();
-							all_pieces[i-1][j].matched = true;
-							all_pieces[i][j].matched = true;
-							all_pieces[i+1][j].matched = true;
+							match_and_dim(all_pieces[i-1][j]);
+							match_and_dim(all_pieces[i][j]);
+							match_and_dim(all_pieces[i+1][j]);
 				if j > 0 && j < height-1:
-					if all_pieces[i][j-1] != null && all_pieces[i][j+1] != null:
+					if !is_piece_null(i,j-1) && !is_piece_null(i,j+1):
 						if all_pieces[i][j-1].color == currentColor && all_pieces[i][j+1].color == currentColor:
 							print("Match vertical!");
-							all_pieces[i][j-1].dim();
-							all_pieces[i][j].dim();
-							all_pieces[i][j+1].dim();
-							all_pieces[i][j-1].matched = true;
-							all_pieces[i][j].matched = true;
-							all_pieces[i][j+1].matched = true;
+							match_and_dim(all_pieces[i][j-1]);
+							match_and_dim(all_pieces[i][j]);
+							match_and_dim(all_pieces[i][j+1]);
 	get_parent().get_node("destroy_timer").start();
+	
+func match_and_dim(item):
+	item.matched = true;
+	item.dim();
+	
+func is_piece_null(i, j):
+	return all_pieces[i][j] == null;
 
 func destroy_matched():
 	var found_match = false;
@@ -232,7 +238,7 @@ func destroy_matched():
 func collapse_cols():
 	for i in width:
 		for j in height:
-			if all_pieces[i][j] == null && !restricted_movement(Vector2(i, j)):
+			if all_pieces[i][j] == null && !restricted_fill(Vector2(i, j)):
 				for k in range(j+1, height):
 					if all_pieces[i][k] != null:
 						all_pieces[i][k].move(grid_to_pixel(i, j));
@@ -244,7 +250,7 @@ func collapse_cols():
 func refill_cols():
 	for i in width:
 		for j in height:
-			if all_pieces[i][j] == null && !restricted_movement(Vector2(i, j)):
+			if all_pieces[i][j] == null && !restricted_fill(Vector2(i, j)):
 				var random = generate_random();
 				#create the piece
 				var piece = possible_pieces[random].instance();
